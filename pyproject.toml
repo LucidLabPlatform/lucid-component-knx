@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=69", "setuptools_scm[toml]>=8", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lucid-component-knx"
+dynamic = ["version"]
+description = "LUCID component for KNX IP lighting control via xknx."
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{ name = "LUCID" }]
+dependencies = [
+  "lucid-component-base @ git+https://github.com/LucidLabPlatform/lucid-component-base@v2.0.0",
+  "xknx>=2.12",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.entry-points."lucid_components"]
+knx = "lucid_component_knx.component:KNXComponent"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["lucid_component_knx*"]
+
+[tool.setuptools_scm]
+version_scheme = "no-guess-dev"
+local_scheme = "no-local-version"
+fallback_version = "0.0.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
