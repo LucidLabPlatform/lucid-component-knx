@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import threading
 import time
@@ -65,6 +66,47 @@ class KNXComponent(Component):
     def get_cfg_payload(self) -> dict[str, Any]:
         return dict(self._cfg)
 
+    def schema(self) -> dict[str, Any]:
+        s = copy.deepcopy(super().schema())
+        s["publishes"]["state"]["fields"].update({
+            "connected": {"type": "boolean"},
+            "lights": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "fields": {
+                        "name": {"type": "string"},
+                        "on": {"type": "boolean"},
+                        "brightness": {"type": "integer", "min": 0, "max": 255},
+                    },
+                },
+            },
+        })
+        s["publishes"]["cfg"]["fields"].update({
+            "gateway_host": {"type": "string"},
+            "gateway_port": {"type": "integer"},
+            "lights": {"type": "array", "description": "KNX light device definitions"},
+        })
+        s["subscribes"].update({
+            "cmd/light/on": {
+                "fields": {
+                    "light": {"type": "string", "description": "Light name from config"},
+                },
+            },
+            "cmd/light/off": {
+                "fields": {
+                    "light": {"type": "string", "description": "Light name from config"},
+                },
+            },
+            "cmd/light/brightness/set": {
+                "fields": {
+                    "light": {"type": "string"},
+                    "brightness": {"type": "integer", "min": 0, "max": 255},
+                },
+            },
+        })
+        return s
+
     # ── lifecycle ──────────────────────────────────────────────
 
     def _start(self) -> None:
@@ -98,6 +140,7 @@ class KNXComponent(Component):
 
     def _publish_all_retained(self) -> None:
         self.publish_metadata()
+        self.publish_schema()
         self.publish_status()
         self.publish_state()
         self.set_telemetry_config({
@@ -169,16 +212,21 @@ class KNXComponent(Component):
                                 self.publish_telemetry("connected", True)
 
             except Exception:
-                self._log.exception("KNX gateway error")
+                if not self._stop_event.is_set():
+                    self._log.exception("KNX gateway error")
 
             self._connected = False
             self._devices = {}
-            self.publish_state()
-            if self.should_publish_telemetry("connected", False):
-                self.publish_telemetry("connected", False)
 
             if self._stop_event.is_set():
                 break
+
+            try:
+                self.publish_state()
+                if self.should_publish_telemetry("connected", False):
+                    self.publish_telemetry("connected", False)
+            except Exception:
+                self._log.debug("Could not publish state during disconnect")
 
             self._log.info("Retrying KNX connection in 30s")
             for _ in range(60):
