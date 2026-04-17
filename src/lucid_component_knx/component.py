@@ -144,7 +144,7 @@ class KNXComponent(Component):
         self.publish_status()
         self.publish_state()
         self.set_telemetry_config({
-            "connected": {"enabled": True, "interval_s": 5, "change_threshold_percent": 0},
+            "connected": {"enabled": False, "interval_s": 0.1, "change_threshold_percent": 0},
         })
         self.publish_cfg()
 
