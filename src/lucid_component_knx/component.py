@@ -194,6 +194,7 @@ class KNXComponent(Component):
                                 "brightness_state_address"
                             ),
                         )
+                        xknx.devices.async_add(light)
                         light.register_device_updated_cb(self._device_updated_cb)
                         self._devices[name] = light
 
