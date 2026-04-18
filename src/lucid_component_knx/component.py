@@ -235,7 +235,7 @@ class KNXComponent(Component):
                     break
                 await asyncio.sleep(0.5)
 
-    async def _device_updated_cb(self, device: Any) -> None:
+    def _device_updated_cb(self, device: Any) -> None:
         name = device.name
         if name not in self._light_state:
             return
