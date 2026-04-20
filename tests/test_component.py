@@ -153,6 +153,7 @@ def make_component_with_light(name="Lab Light", has_brightness=True):
     """Return a component with a fake light device already in _devices."""
     c = make_component()
     mock_light = MagicMock()
+    mock_light.name = name
     mock_light.supports_brightness = has_brightness
     c._devices[name] = mock_light
     return c, mock_light

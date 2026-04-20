@@ -257,6 +257,19 @@ class KNXComponent(Component):
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)
         return future.result(timeout=5.0)
 
+    # ── command helpers ───────────────────────────────────────
+
+    def _resolve_lights(self, light_name: str) -> list[Any]:
+        """Return list of devices for the given name.
+
+        If light_name is empty or "all", returns all connected devices.
+        Returns an empty list if the named light is unknown.
+        """
+        if not light_name or light_name == "all":
+            return list(self._devices.values())
+        device = self._devices.get(light_name)
+        return [device] if device is not None else []
+
     # ── command handlers ──────────────────────────────────────
 
     def on_cmd_ping(self, payload_str: str) -> None:
@@ -337,13 +350,14 @@ class KNXComponent(Component):
         except json.JSONDecodeError:
             request_id, light_name = "", ""
 
-        device = self._devices.get(light_name)
-        if device is None:
+        devices = self._resolve_lights(light_name)
+        if not devices:
             self.publish_result("light/on", request_id, ok=False,
                                 error=f"unknown light: {light_name!r}")
             return
         try:
-            self._run_async(device.set_on())
+            for device in devices:
+                self._run_async(device.set_on())
         except Exception as exc:
             self.publish_result("light/on", request_id, ok=False, error=str(exc))
             return
@@ -357,13 +371,14 @@ class KNXComponent(Component):
         except json.JSONDecodeError:
             request_id, light_name = "", ""
 
-        device = self._devices.get(light_name)
-        if device is None:
+        devices = self._resolve_lights(light_name)
+        if not devices:
             self.publish_result("light/off", request_id, ok=False,
                                 error=f"unknown light: {light_name!r}")
             return
         try:
-            self._run_async(device.set_off())
+            for device in devices:
+                self._run_async(device.set_off())
         except Exception as exc:
             self.publish_result("light/off", request_id, ok=False, error=str(exc))
             return
@@ -378,14 +393,15 @@ class KNXComponent(Component):
         except json.JSONDecodeError:
             request_id, light_name, brightness = "", "", None
 
-        device = self._devices.get(light_name)
-        if device is None:
+        devices = self._resolve_lights(light_name)
+        if not devices:
             self.publish_result("light/brightness/set", request_id, ok=False,
                                 error=f"unknown light: {light_name!r}")
             return
-        if not device.supports_brightness:
+        no_brightness = [d.name for d in devices if not d.supports_brightness]
+        if no_brightness:
             self.publish_result("light/brightness/set", request_id, ok=False,
-                                error="light has no brightness address")
+                                error=f"light(s) have no brightness address: {', '.join(no_brightness)}")
             return
         if brightness is None:
             self.publish_result("light/brightness/set", request_id, ok=False,
@@ -393,7 +409,8 @@ class KNXComponent(Component):
             return
         brightness = max(0, min(255, int(brightness)))
         try:
-            self._run_async(device.set_brightness(brightness))
+            for device in devices:
+                self._run_async(device.set_brightness(brightness))
         except Exception as exc:
             self.publish_result("light/brightness/set", request_id, ok=False, error=str(exc))
             return
