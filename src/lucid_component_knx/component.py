@@ -130,10 +130,12 @@ class KNXComponent(Component):
 
     def _stop(self) -> None:
         self._stop_event.set()
+        # Wake the loop so it detects the stop_event on its next 0.5s sleep tick
+        # rather than calling loop.stop() which abandons xknx tasks mid-flight.
         if self._loop and self._loop.is_running():
-            self._loop.call_soon_threadsafe(self._loop.stop)
+            self._loop.call_soon_threadsafe(lambda: None)
         if self._thread:
-            self._thread.join(timeout=10.0)
+            self._thread.join(timeout=15.0)
             self._thread = None
         self._connected = False
         self._log.info("KNX component stopped")
